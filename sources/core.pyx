@@ -948,7 +948,7 @@ cdef void solve_link(Particle *par, int state)nogil:
     cdef float curretframedevidesubstep = currentframe/substep
     cdef int intcurretframedevidesubstep = int(curretframedevidesubstep)
     if state == 1 and currentframe >= 250:
-        if curretframedevidesubstep == intcurretframedevidesubstep and currentframe % 50 == 0:
+        if curretframedevidesubstep == intcurretframedevidesubstep and currentframe % (5*30) == 0: # 5 = subframe, 30 = amount delay frame
             remove_link(par)
 
     # broken_links = []

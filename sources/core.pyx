@@ -43,6 +43,8 @@ cdef ParSys *psys = NULL
 cdef KDTree *kdtree = NULL
 cdef int currentframe = 0
 cdef int neighbours_border_num = 10
+cdef int *remove_link_scene_num = NULL #for debug
+cdef int *remove_temp = NULL
 
 print("cmolcore imported with success! v1.13")
 
@@ -63,6 +65,7 @@ cpdef init(importdata):
     global deadlinks
     global currentframe
     global neighbours_border_num
+    global remove_link_scene_num
     cdef int i = 0
     cdef int ii = 0
     cdef int profiling = 0
@@ -81,6 +84,15 @@ cpdef init(importdata):
     psys = <ParSys *>malloc(psysnum * cython.sizeof(ParSys))
     parlist = <Particle *>malloc(parnum * cython.sizeof(Particle))
     parlistcopy = <SParticle *>malloc(parnum * cython.sizeof(SParticle))
+
+    #for debug
+    remove_link_scene_num = <int *>malloc(2500 * cython.sizeof(int))
+    remove_temp = <int *>malloc(parnum * cython.sizeof(int))
+    for i in xrange(2500):
+        remove_link_scene_num[i] = 0
+    for i in xrange(parnum):
+        remove_temp[i] = 0
+    
     cdef int jj = 0
     for i in xrange(psysnum):
         psys[i].id = i
@@ -279,6 +291,8 @@ cpdef simulate(importdata):
     global totaldeadlinks
     global deadlinks
     global currentframe
+    global remove_link_scene_num #for debug
+    global remove_temp
 
     currentframe += 1
 
@@ -298,6 +312,9 @@ cpdef simulate(importdata):
     parPool[0].axis = -1
     parPool[0].offset = 0
     parPool[0].max = 0
+
+    for i in xrange(parnum):
+        remove_temp[i] = 0
 
     # cdef float *zeropoint = [0,0,0]
     newlinks = 0
@@ -488,7 +505,8 @@ cpdef simulate(importdata):
                     )
 
                     solve_link(
-                        &parlist[parPool[0].parity[pair].heap[heaps].par[i]]
+                        &parlist[parPool[0].parity[pair].heap[heaps].par[i]],
+                        0
                     )
 
                     if parlist[
@@ -505,7 +523,7 @@ cpdef simulate(importdata):
     with nogil:
         for i in xrange(parnum):
             collide(&parlist[i])
-            solve_link(&parlist[i])
+            solve_link(&parlist[i], 1)
             '''
             if parlist[i].neighboursnum > 1:
                 #free(parlist[i].neighbours)
@@ -541,6 +559,13 @@ cpdef simulate(importdata):
         pydeadlinks += deadlinks[i]
     totaldeadlinks += pydeadlinks
 
+    assign_border_from_remove_temp()
+    #for debug
+    if remove_link_scene_num[currentframe] != 0:
+        print("--------------------------------------------\n--------------------------------------------")
+        print("-----------"+str(remove_link_scene_num[currentframe]))
+        print("--------------------------------------------\n--------------------------------------------")
+    
     exportdata = [
         parloc,
         parvel,
@@ -561,7 +586,7 @@ cpdef simulate(importdata):
     if profiling == 1:
         print("-->export time", clock() - stime, "sec")
         print("-->all process time", clock() - stime2, "sec")
-        
+
     return exportdata
 
 cpdef memfree():
@@ -876,7 +901,7 @@ cdef void collide(Particle *par)nogil:
                         create_link(par.id,par.sys.link_max * 2, par2.id)
 
 
-cdef void solve_link(Particle *par)nogil:
+cdef void solve_link(Particle *par, int state)nogil:
     global parlist
     global deltatime
     global deadlinks
@@ -926,8 +951,8 @@ cdef void solve_link(Particle *par)nogil:
     #demo: try to remove all rink at frame 250/5 
     cdef float curretframedevidesubstep = currentframe/substep
     cdef int intcurretframedevidesubstep = int(curretframedevidesubstep)
-    if currentframe >= 250:
-        if curretframedevidesubstep == intcurretframedevidesubstep and intcurretframedevidesubstep % 50 == 0:
+    if state == 1 and currentframe >= 250:
+        if curretframedevidesubstep == intcurretframedevidesubstep and currentframe % 50 == 0:
             remove_link(par)
 
     # broken_links = []
@@ -1373,20 +1398,30 @@ cdef void KDTree_rnn_search(
 
 cdef void remove_link(Particle *par)nogil:
     global parlist
+    global kdtree
+    global remove_link_scene_num #for debug
+    global remove_temp
+    global currentframe
+
     if not par.is_virtal_water:
+        KDTree_rnn_query(
+                kdtree,
+                par,
+                par.loc,
+                par.sys.link_length
+        )
+        
         if par.is_border or par.neighboursnum <= neighbours_border_num:
-            #with gil:
-            #    print(par.id)
             par.links = <Links *>malloc(1 * cython.sizeof(Links))
             par.links_num = 0
             par.links_activnum = 0
             par.link_with = <int *>malloc(1 * cython.sizeof(int))
             par.link_withnum = 0
             par.is_virtal_water = True
-            #par.vel[2] = 0 # test add gravity force
+            
             for x in range(par.neighboursnum):
                 if not parlist[par.neighbours[x]].is_border:
-                    parlist[par.neighbours[x]].is_border = True
+                    remove_temp[par.neighbours[x]] = 1 #parlist[par.neighbours[x]].is_border = True --> use remove_temp instead, prevent from mutation when update.
                     
                     parsearch = arraysearch(
                         par.neighbours[x],
@@ -1396,10 +1431,23 @@ cdef void remove_link(Particle *par)nogil:
 
                     if parsearch != -1:
                         parlist[par.neighbours[x]].link_with[parsearch] = -1
+            
+            #for debug
+            with gil:
+                print(str(par.id) + " | " +str(par.neighboursnum)  + " | " + str(par.link_withnum))
+            
+            remove_link_scene_num[currentframe] += 1
 
-                    par.is_virtal_water = True
-                    with gil:
-                        print("-----------------------------------------")
+cdef void assign_border_from_remove_temp()nogil:
+    global remove_temp
+    global parlist
+    global parnum
+
+    for i in range(parnum):
+        if (remove_temp[i] == 1):
+            parlist[i].is_border = True
+            remove_temp[i] = 0
+
 
 cdef void remove_link_all()nogil:
     global psysnum

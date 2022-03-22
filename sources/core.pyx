@@ -44,7 +44,6 @@ cdef KDTree *kdtree = NULL
 cdef int currentframe = 0
 cdef int neighbours_border_num = 10
 cdef int *remove_link_scene_num = NULL #for debug
-cdef int *remove_temp = NULL
 
 print("cmolcore imported with success! v1.13")
 
@@ -87,11 +86,8 @@ cpdef init(importdata):
 
     #for debug
     remove_link_scene_num = <int *>malloc(2500 * cython.sizeof(int))
-    remove_temp = <int *>malloc(parnum * cython.sizeof(int))
     for i in xrange(2500):
         remove_link_scene_num[i] = 0
-    for i in xrange(parnum):
-        remove_temp[i] = 0
     
     cdef int jj = 0
     for i in xrange(psysnum):
@@ -292,7 +288,6 @@ cpdef simulate(importdata):
     global deadlinks
     global currentframe
     global remove_link_scene_num #for debug
-    global remove_temp
 
     currentframe += 1
 
@@ -313,9 +308,6 @@ cpdef simulate(importdata):
     parPool[0].offset = 0
     parPool[0].max = 0
 
-    for i in xrange(parnum):
-        remove_temp[i] = 0
-
     # cdef float *zeropoint = [0,0,0]
     newlinks = 0
     for i in xrange(cpunum):
@@ -332,6 +324,9 @@ cpdef simulate(importdata):
         stime = clock()
 
     for i in xrange(parnum):
+        if parlist[i].is_border == 2:
+            parlist[i].is_border = True
+
         parlistcopy[i].id = parlist[i].id
         parlistcopy[i].loc[0] = parlist[i].loc[0]
         # if parlist[i].loc[0] >= FLT_MAX or parlist[i].loc[0] <= -FLT_MAX :
@@ -529,6 +524,9 @@ cpdef simulate(importdata):
                 #free(parlist[i].neighbours)
                 parlist[i].neighboursnum = 0
             '''
+            
+            if parlist[i].is_border == 2:
+                parlist[i].is_border = True
 
     if profiling == 1:
         print("-->collide/solve link time", clock() - stime, "sec")
@@ -559,13 +557,6 @@ cpdef simulate(importdata):
         pydeadlinks += deadlinks[i]
     totaldeadlinks += pydeadlinks
 
-    assign_border_from_remove_temp()
-    #for debug
-    if remove_link_scene_num[currentframe] != 0:
-        print("--------------------------------------------\n--------------------------------------------")
-        print("-----------"+str(remove_link_scene_num[currentframe]))
-        print("--------------------------------------------\n--------------------------------------------")
-    
     exportdata = [
         parloc,
         parvel,
@@ -586,6 +577,11 @@ cpdef simulate(importdata):
     if profiling == 1:
         print("-->export time", clock() - stime, "sec")
         print("-->all process time", clock() - stime2, "sec")
+
+    if remove_link_scene_num[currentframe] != 0:
+        print("--------------------------------------------\n--------------------------------------------")
+        print("-----------"+str(remove_link_scene_num[currentframe]))
+        print("--------------------------------------------\n--------------------------------------------")
 
     return exportdata
 
@@ -1400,9 +1396,7 @@ cdef void remove_link(Particle *par)nogil:
     global parlist
     global kdtree
     global remove_link_scene_num #for debug
-    global remove_temp
     global currentframe
-
     if not par.is_virtal_water:
         KDTree_rnn_query(
                 kdtree,
@@ -1411,7 +1405,7 @@ cdef void remove_link(Particle *par)nogil:
                 par.sys.link_length
         )
         
-        if par.is_border or par.neighboursnum <= neighbours_border_num:
+        if par.is_border == True or par.neighboursnum <= neighbours_border_num:
             par.links = <Links *>malloc(1 * cython.sizeof(Links))
             par.links_num = 0
             par.links_activnum = 0
@@ -1421,7 +1415,7 @@ cdef void remove_link(Particle *par)nogil:
             
             for x in range(par.neighboursnum):
                 if not parlist[par.neighbours[x]].is_border:
-                    remove_temp[par.neighbours[x]] = 1 #parlist[par.neighbours[x]].is_border = True --> use remove_temp instead, prevent from mutation when update.
+                    parlist[par.neighbours[x]].is_border = 2 # 2 mean prepare for assign to border, not use True because avoid mutation.
                     
                     parsearch = arraysearch(
                         par.neighbours[x],
@@ -1437,17 +1431,6 @@ cdef void remove_link(Particle *par)nogil:
                 print(str(par.id) + " | " +str(par.neighboursnum)  + " | " + str(par.link_withnum))
             
             remove_link_scene_num[currentframe] += 1
-
-cdef void assign_border_from_remove_temp()nogil:
-    global remove_temp
-    global parlist
-    global parnum
-
-    for i in range(parnum):
-        if (remove_temp[i] == 1):
-            parlist[i].is_border = True
-            remove_temp[i] = 0
-
 
 cdef void remove_link_all()nogil:
     global psysnum

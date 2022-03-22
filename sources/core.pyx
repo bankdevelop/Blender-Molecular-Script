@@ -42,7 +42,7 @@ cdef SParticle *parlistcopy = NULL
 cdef ParSys *psys = NULL
 cdef KDTree *kdtree = NULL
 cdef int currentframe = 0
-cdef int neighbours_border_num = 10
+cdef int neighbours_border_num = 14
 cdef int *remove_link_scene_num = NULL #for debug
 
 print("cmolcore imported with success! v1.13")

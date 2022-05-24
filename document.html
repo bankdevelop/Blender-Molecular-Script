@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        .pre {
+            background-color:gainsboro;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .mar {
+            background-color: lightblue;
+            width: fit-content;
+        }
+        
+        .title {
+            background-color: rgb(223, 242, 255);
+            border-top:solid rgb(2, 31, 128) 4px;
+            padding: 5px;
+            width: fit-content;
+        }
+
+        .block {
+            margin: 10px;
+        }
+
+        .des {
+            margin-top: -0.5px;
+        }
+
+        .structure li:before {
+            content: "-";
+            padding-right: 5px;
+        }
+
+        ul.structure {
+            position: relative;
+            list-style: none;
+            margin-left: 0;
+            padding-left: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <h1>File structure</h1>
+    <div>
+        molecular/
+        <ul class="structure">
+            <li>__init__.py ---> ตั้งค่าเริ่มต้นให้กับ blender function // bl_info กำหนดเวอร์ชั่นของ library</li>
+            <li>descriptions.py ---> CONSTANT VARIABLE เกี่ยวกับคำอธิบาย</li>
+            <li>names.py ---> CONSTANT VARIABLE เกี่ยวกับชื่อ</li>
+            <li>operators.py ---> ไฟล์ที่ทำการรัน simulate จำลองการทำ mocular โดยมีเรียกใช้ไฟล์ core.pyx แล้วนำค่าที่ได้กลับมาใส่ใน       blender particle system</li>
+            <li><a href="#simulate">simulate.py</a> ---> ใส่ค่าเริ่มต้นให้กับระบบ simulate</li>
+            <li>ui.py ---> หน้าต่าง UI ใน blender</li>
+            <li><a href="#util">utils.py</a> ---> ฟังก์ชันช่วยเพิ่มเติม</li>
+        </ul>
+        source/
+        <ul class="structure">
+            <li><a href="#core">core.pyx</a> ---> ไฟล์หลักในการคำนวณค่าต่างๆ ก่อนจะ return importdata ที่คำนวณแล้วกลับไป</li>
+            <li>setup.bat ---> compiling core.pyx, ย้ายไฟล์และลบไฟล์ที่ไม่จำเป็น</li>
+            <li>setup.py ---> ตั้งค่า complie สำหรับ cython</li>
+        </ul>
+        make_release.py ---> ใช้รันสำหรับสร้าง file zip addon และพร้อใสำหรับใช้ใน blender - คำสั่ง 'python make_release.py' 
+    </div>
+
+    <br>
+    <hr>
+    <br>
+    
+    <fieldset id="core">
+        <legend><h3>core.pyx</h3></legend>
+        <div class="block">
+            @cpdef
+            <div class="title">init(importdata)</div>
+            <ul class="des">
+                <li>Description: ตั้งค่าเริ่มต้นให้กับระบบ simulate</li>
+                <li>Parameters: importdata (Array[]) – ข้อมูลที่นำเข้าจาก blender ไปยังระบบ simulate.</li>
+                <li>Returns: parnum, number of particle</li>
+                <li>Return type: Int</li>
+            </ul>
+        </div>
+
+        <div class="block">
+            <div class="title">testkdtree(int verbose = 0)</div>
+            <ul class="des">
+                <li>Description: ทดสอบ k-d tree โดยการ print output ออกมาตรวจสอบ</li>
+                <li>Parameters: verbose (int) – สถานะที่ใช้บอกในการแสดงรายละเอียด ถ้าค่า >= 1 บอกจำนวน particle ที่พบ, ถ้าค่า >= 2 ให้แสดง particle id ที่หาเจอ และถ้าค่า >= 3 แสดง (Parent, Particle id, Left, Right)</li>
+            </ul>
+        </div>
+
+        <div class="block">
+            @cpdef
+            <div class="title">simulate(importdata)</div>
+            <ul class="des">
+                <li>Description: จำลองระบบ molecular โดยรับค่า velocity และค่าอื่นๆที่จำเป็นมาก่อนจะคืนค่าที่ update แล้วกลับไป</li>
+                <li>Parameters: importdata (Array[]) – ข้อมูล particles ที่นำเข้าจาก blender ไปยังระบบ simulate.</li>
+                <li>Returns: exportdata - ข้อมูล particle ที่คำนวณใหม่เรียบร้อย</li>
+                <li>Return type: Array[]</li>
+            </ul>
+        </div>
+
+        <div class="block">
+            <div class="title">memfree()</div>
+            <ul class="des">
+                <li>Description: ทำการ reset ค่า fps, substep, deltatime, และค่าอื่นๆในระบบ และทำใช้ฟังกชัน reallocate กับทุก node ใน KDTree</li>
+            </ul>
+        </div>
+
+        <div class="block">
+            <div class="title">collide(Particle *par)nogil</div>
+            <ul class="des">
+                <li>Description: คำนวณค่า velocity ของ particle หลังจากการชนกันระหว่าง particle</li>
+                <li>Parameters: par (<a href="#particle">Particle</a>) – ข้อมูลของ node particle</li>
+            </ul>
+        </div>
+
+        <div class="block">
+            <div class="title">solve_link(Particle *par, int state)nogil</div>
+            <ul class="des">
+                <li>Description: คำนวณค่า velocity ของ particle หลังจากระหว่าง link</li>
+                <li>Parameters:</li>
+                <ul>
+                    <li>par (<a href="#particle">Particle</a>) – ข้อมูลของ node particle</li>
+                    <li>state (int) – ถ้ามีค่ามากกว่าเท่ากับ 1 จะทำการเรียกการทำงาน remove_link ด้วย</li>
+                </ul>
+            </ul>
+        </div>
+
+        <div class="block">
+            <div class="title">update(data)</div>
+            <ul class="des">
+                <li>Description: นำค่า importdata ไป update ค่า velocity และข้อมูลอื่นๆ ของ particle ในระบบและ update ข้อมูลใน kdtree</li>
+                <li>Parameters: data (Array[]) – ข้อมูล importdata ที่ถูกส่งต่อมาจากตัวแปร importdata ในฟังก์ชัน simulate โดยตรง</li>
+            </ul>
+        </div>
+
+        <div class="block">
+            <div class="title">KDTree_create_nodes(KDTree *kdtree,int parnum)</div>
+            <ul class="des">
+                <li>Description: นำค่า importdata ไป update ค่า velocity และข้อมูลอื่นๆ ของ particle ในระบบและ update ข้อมูลใน kdtree</li>
+                <li>Parameters:</li>
+                <ul>
+                    <li>kdtree (*<a href="#kdtree">KDTree</a>) – pointer ของ kdtree ที่ต้องการให้สร้าง</li>
+                    <li>parnum (int) – จำนวน parnum ใข้ในการกำหนดจำนวน node ที่จะสร้าง</li>
+                </ul>
+            </ul>
+        </div>
+
+        <div class="block">
+            <div class="title">
+                cdef Node KDTree_create_tree(
+                    KDTree *kdtree,
+                    SParticle *kdparlist,
+                    int start,
+                    int end,
+                    int name,
+                    int parent,
+                    int depth,
+                    int initiate)nogil:
+            </div>
+            <ul class="des">
+                <li>Description: สร้าง kdtree จาก kdparlist (sequence ที่เก็บข้อมูลของ particle ทั้งหมด)</li>
+                <li>Parameters:</li>
+                <ul>
+                    <li>kdtree (<a href="#kdtree">KDTree</a>) – pointer ของ kdtree ที่ต้องการให้เริ่มสร้าง</li>
+                    <li>kdparlist (<a href="#sparticle">SParticle</a>) - ข้อมูล particle ที่ถูกสร้างขึ้นโดยการ copy มาจากข้อมูลหลักใช้ในการสร้าง kdtree</li>
+                    <li>start (int) - index ที่ต้องการให้เริ่มใน kdparlist</li>
+                    <li>end (int) - index สุดท้ายที่ต้องการใน kdparlist</li>
+                    <li>name (int) - name ของ node</li>
+                    <li>parent (int) - par_id ของ particle ที่เป็น parent</li>
+                    <li>depth (int) - ความสูงของ kdtree</li>
+                    <li>initiate (int) - ถ้ามีค่า 1 จะมีการใส่ข้อมูลลงใน node</li>
+                </ul>
+                <li>Returns: kdtree node - node ที่เติมข้อมูล</li>
+                <li>Return type: Node</li>
+            </ul>
+        </div>
+
+        <div class="block">
+            <div class="title">
+                cdef int KDTree_rnn_query(
+                KDTree *kdtree,
+                Particle *par,
+                float point[3],
+                float dist
+                )nogil:
+            </div>
+            <ul class="des">
+                <li>Description: ค้นหา particle neighbours รอบ par node</li>
+                <li>Parameters:</li>
+                <ul>
+                    <li>kdtree (<a href="#kdtree">KDTree</a>) - kdtree ที่เก็บข้อมูล particle ใช้สำหรับค้นหาข้อมูล particle ต่างๆ</li>
+                    <li>par (<a href="#particle">Particle</a>) - ข้อมูล Particle หลักที่จะค้นหาว่ามี particle neighbours อะไรบ้าง</li>
+                    <li>point (float[3]) - ตำแหน่งของ particle ที่จะค้นหา particle neighbours</li>
+                    <li>dist (float) - ความยาวในการค้นหา neighbours search</li>
+                </ul>
+            </ul>
+        </div>
+
+        <div class="block">
+            <div class="title">
+                KDTree_rnn_search(
+                    KDTree *kdtree,
+                    Particle *par,
+                    Node node,
+                    float point[3],
+                    float dist,
+                    float sqdist,
+                    int k,
+                    int depth
+                    )nogil:
+            </div>
+            <ul class="des">
+                <li>Description: ค้นหา nearest neighbour ของ particle</li>
+                <li>Parameters:</li>
+                <ul>
+                    <li>kdtree (<a href="#kdtree">KDTree</a>) – ข้อมูล particle ทั้งหมดสำหรับค้นหา</li>
+                    <li>par (<a href="#particle">Particle</a>) – ข้อมูลของ Particle</li>
+                    <li>node (<a href="#node">Node</a>) - ข้อมูล node ของ particle ที่กำลังค้นหา</li>
+                    <li>point (float[3]) - ตำแหน่งของ particle ที่จะค้นหา particle neighbours</li>
+                    <li>dist (float) - ความยาวในการค้นหา neighbours search</li>
+                    <li>sqdist (float) - dist*dist</li>
+                    <li>k (int) - ไม่มีการใช้ค่านี้</li>
+                    <li>depth (int) - ความลึกของ kdtree</li>
+                </ul>
+            </ul>
+        </div>
+
+        <div class="block">
+            @vesion(1.1.3)
+            <div class="title">remove_link(Particle *par)nogil</div>
+            <ul class="des">
+                <li>Description: คำนวณค่า velocity ของ particle หลังจากระหว่าง link</li>
+                <li>Parameters: par (<a href="#particle">Particle</a>) – ข้อมูลของ Particle</li>
+            </ul>
+        </div>
+
+        <div class="block">
+            @vesion(1.1.3)
+            <div class="title">remove_link_all()nogil</div>
+            <ul class="des">
+                <li>Description: ทำหน้าที่ลบ link ระหว่าง particle ทั้งหมดโดยเรียกใช้ remove_link(Particle *par)</li>
+            </ul>
+        </div>
+
+        <div class="block">
+            <div class="title">create_link(int par_id, int max_link, int parothers_id=-1)nogil</div>
+            <ul class="des">
+                <li>Description: สร้าง link ระหว่าง par_id กับ parother_id หรือ neighbours ของ par_id</li>
+                <li>Parameters:</li>
+                <ul>
+                    <li>par_id (int) – id หรือ index ไว้ในการเข้าถึง Particle ใน global array variable</li>
+                    <li>max_link (int) - จำนวน link มากที่สุดที่สามารถมีได้ต่อหนึ่ง par_id</li>
+                    <li>parothers_id (int) - par_id ของ Particle อื่นที่ต้องการให้ link กับอันหลัก</li>
+                </ul>
+            </ul>
+        </div>
+    </fieldset>
+
+    <br>
+
+    <fieldset id="simulate">
+        <legend><h3>simulate.py</h3></legend>
+        <div class="block">
+            <div class="title">pack_data(context, initiate)</div>
+            <ul class="des">
+                <li>Description: นำค่าจาก setting ใส่ Array[] ให้พร้อมสำหรับการนำเข้าระบบ simulate</li>
+                <li>Parameters:</li>
+                <ul>
+                    <li>initiate (boolean) - ถ้าเป็น True จะมีการใส่ค่าข้อมูล params ลงไปใน exportdata</li>
+                    <li>context (<a target="_blank" href="https://docs.blender.org/api/current/bpy.context.html">bpy.Context</a>)</li>
+                </ul>
+                <li>Returns: mol_exportdata - array ข้อมูลสำหรับจำลอง molecular</li>
+                <li>Return type: Array[]</li>
+            </ul>
+        </div>
+    </fieldset>
+
+    <br>
+
+    <fieldset id="util">
+        <legend><h3>util.py</h3></legend>
+        <div class="block">
+            <div class="title">get_object(context, obj)</div>
+            <ul class="des">
+                <li>Description: Get corresponding evaluated ID from the given dependency graph</li>
+                <li>Parameters:</li>
+                <ul>
+                    <li>context (<a target="_blank" href="https://docs.blender.org/api/current/bpy.context.html">bpy.Context</a>) - ถ้าเป็น True จะมีการใส่ค่าข้อมูล params ลงไปใน exportdata</li>
+                    <li>obj (<a target="_blank" href="https://docs.blender.org/api/current/bpy.context.html#bpy.context.object">bpy.context.object</a>)</li>
+                </ul>
+                <li>Returns: New copy of the ID</li>
+                <li>Return type: <a target="_blank" href="https://docs.blender.org/api/current/bpy.types.ID.html#bpy.types.ID">ID</a></li>
+            </ul>
+        </div>
+
+        <div class="block">
+            <div class="title">destroy_caches(obj)</div>
+            <ul class="des">
+                <li>Description: ทำลาย caches สำหรับการ resimulation</li>
+                <li>Parameters:</li>
+                <ul>
+                    <li>obj (<a target="_blank" href="https://docs.blender.org/api/current/bpy.context.html#bpy.context.object">bpy.context.object</a>)</li>
+                </ul>
+            </ul>
+        </div>
+    </fieldset>
+
+    <br>
+    <hr>
+    <br>
+
+    <fieldset>
+        <legend><h3>Struct</h3></legend>
+        <!-- html by : convert Microsoft Word to HTML -->
+        <div class="pre" id="particle">
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#569CD6;">cdef</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#C586C0;">struct</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;Particle:</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#DCDCAA;">id</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;loc[</span><span style="font-size:14px;font-family:Consolas;color:#B5CEA8;">3</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">]</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;vel[</span><span style="font-size:14px;font-family:Consolas;color:#B5CEA8;">3</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">]</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;size</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;mass</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp; char state</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp; <a style="color:white;" href="#parsys">ParSys</a> *sys</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;*collided_with</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;collided_num</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp; <a style="color:white;" href="#links">Links</a> *links</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;links_num</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;links_activnum</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;*link_with</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;link_withnum</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;*neighbours</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;neighboursnum</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;neighboursmax</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;is_border&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#6A9955;">#ice metling: use for define particle that use for tranform to virtal water</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;is_virtal_water&nbsp;</span></p>
+        </div>
+
+        <div class="pre" id="links">
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#569CD6;">cdef</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#C586C0;">struct</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;Links:</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;lenght</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;start</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;end</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;stiffness</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;exponent</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;damping</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;broken</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;estiffness</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;eexponent</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;edamping</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;ebroken</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;friction</span></p>
+        </div>
+
+        <div class="pre" id="parsys">
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#569CD6;">cdef</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#C586C0;">struct</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;ParSys:</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#DCDCAA;">id</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;parnum</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp; <a style="color:white;" href="#particle">Particle</a> *particles</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;selfcollision_active</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;othercollision_active</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;collision_group</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;friction</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;collision_damp</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;links_active</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;link_length</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;link_max</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;link_tension</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;link_tensionrand</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;link_stiff</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;link_stiffrand</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;link_stiffexp</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;link_damp</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;link_damprand</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;link_broken</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;link_brokenrand</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;link_estiff</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;link_estiffrand</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;link_estiffexp</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;link_edamp</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;link_edamprand</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;link_ebroken</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;link_ebrokenrand</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;relink_group</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;relink_chance</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;relink_chancerand</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;relink_max</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;relink_tension</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;relink_tensionrand</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;relink_stiff</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;relink_stiffexp</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;relink_stiffrand</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;relink_damp</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;relink_damprand</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;relink_broken</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;relink_brokenrand</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;relink_estiff</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;relink_estiffexp</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;relink_estiffrand</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;relink_edamp</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;relink_edamprand</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;relink_ebroken</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;relink_ebrokenrand</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;link_friction</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;link_group</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;other_link_active</span></p>
+        </div>
+
+        <div class="pre" id="kdtree">
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#569CD6;">cdef</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#C586C0;">struct</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;KDTree:</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;numnodes</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#6A9955;"># int num_result</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#6A9955;"># int *result</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp; <a style="color:white;" href="#node">Node</a> *root_node</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp; <a style="color:white;" href="#node">Node</a> *nodes</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp; char axis[</span><span style="font-size:14px;font-family:Consolas;color:#B5CEA8;">64</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">]</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;thread_index</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;*thread_nodes</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;*thread_start</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;*thread_end</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;*thread_name</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;*thread_parent</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;*thread_depth</span></p>
+        </div>
+
+        <div class="pre" id="node">
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#569CD6;">cdef</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#C586C0;">struct</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;Node:</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;index</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp; char name</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;parent</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;loc[</span><span style="font-size:14px;font-family:Consolas;color:#B5CEA8;">3</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">]&nbsp;</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp; <a style="color:white;" href="#sparticle">SParticle</a> *particle</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp; <a style="color:white;" href="#node">Node</a> *left_child</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp; <a style="color:white;" href="#node">Node</a> *right_child</span></p>
+        </div>
+
+        <div class="pre" id="sparticle">
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#569CD6;">cdef</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#C586C0;">struct</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;SParticle:</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">int</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#DCDCAA;">id</span></p>
+            <p style='margin-top:0in;margin-right:0in;margin-bottom:0in;margin-left:0in;line-height:14.25pt;font-size:15px;font-family:"Calibri",sans-serif;background:#1E1E1E;'><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp; &nbsp;&nbsp;</span><span style="font-size:14px;font-family:Consolas;color:#4EC9B0;">float</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">&nbsp;loc[</span><span style="font-size:14px;font-family:Consolas;color:#B5CEA8;">3</span><span style="font-size:14px;font-family:Consolas;color:#D4D4D4;">]</span></p>
+        </div>
+    </fieldset>
+</body>
+</html>
